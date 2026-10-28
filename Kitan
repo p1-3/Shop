@@ -52,6 +52,8 @@ Config = {
 }
 print("[Tiro] Script da duoc nap, dang cho game load...")
 repeat task.wait() until game:IsLoaded()
+-- Reset stale state from an earlier execution; otherwise RefreshTasksData/Attack can return forever.
+_G.Stop = false
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -75,7 +77,7 @@ _G.SelectWeapon = nil
 task.spawn(function()
     while task.wait(0.5) do
         pcall(function()
-            local bp = LocalPlayer:FindFirstChild("Backpack")
+            local bp = lp:FindFirstChild("Backpack")
             if not bp then return end
             if _G.ChooseWP == "Melee" then
                 for _, v in pairs(bp:GetChildren()) do
@@ -2448,11 +2450,9 @@ end
                 table.insert(W, a)
             end
         end)
-        table.foreach(game.ReplicatedStorage:GetChildren(), function(a, a)
-            if a and a:FindFirstChild('Humanoid') and a:FindFirstChild("HumanoidRootPart") and a.Humanoid.Health > 0 then
-                table.insert(W, a)
-            end
-        end)
+        -- Only live enemies belong in the target list. ReplicatedStorage contains
+        -- templates/spawn models and attacking one can make the character tween to
+        -- a template position instead of the real mob.
         table.sort(W, function(a, h) return CaculateDistance(a.HumanoidRootPart.CFrame) < CaculateDistance(h.HumanoidRootPart.CFrame) end)
         return W
     end
@@ -2662,6 +2662,7 @@ end
     -- TWEEN CONTROLLER
     -- ============================================================
     TweenController = {}
+    local TweenTargetCF = nil
 
     -- [ADDED - theo yêu cầu boss man: "dùng tween của file red magic hub"]
     -- Port block-tween + sync loop từ main_red_magic_beta.txt — tween 1
@@ -2791,6 +2792,12 @@ end
     function TweenController.Create(W)
         if not W or TweenDebounce then return end
         local a = typeof(W) ~= 'CFrame' and ConvertTo(CFrame, W) or W
+        -- Attack() calls Create every frame. If the active tween is already heading
+        -- to this destination, keep it alive instead of cancelling/restarting it.
+        if TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing
+            and TweenTargetCF and (TweenTargetCF.Position - a.Position).Magnitude <= 8 then
+            return
+        end
         if TweenInstance then pcall(function() TweenInstance:Cancel() end) end
         local character = game.Players.LocalPlayer.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
@@ -2832,6 +2839,10 @@ end
         local dist = CaculateDistance(hrp.CFrame, a)
 
         if dist <= 5 then
+            if TweenInstance then pcall(function() TweenInstance:Cancel() end) end
+            TweenInstance = nil
+            TweenTargetCF = nil
+            shouldTween = false
             hrp.CFrame = a
             block.CFrame = a
             return
@@ -2848,17 +2859,28 @@ end
         -- (Part vô hình) thay vì tween thẳng hrp — nhân vật tự bám theo
         -- block qua vòng lặp sync đã thêm ở trên (getgenv().OnFarm).
         shouldTween = true
-        TweenInstance = Services.TweenService:Create(block, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = a})
-        TweenInstance:Play()
+        TweenTargetCF = a
+        local thisTween = Services.TweenService:Create(
+            block,
+            TweenInfo.new(duration, Enum.EasingStyle.Linear),
+            {CFrame = a}
+        )
+        TweenInstance = thisTween
+        thisTween:Play()
         task.spawn(function()
-            while TweenInstance and TweenInstance.PlaybackState == Enum.PlaybackState.Playing do
-                if not shouldTween then
-                    pcall(function() TweenInstance:Cancel() end)
+            while thisTween.PlaybackState == Enum.PlaybackState.Playing do
+                if not shouldTween or TweenInstance ~= thisTween then
+                    pcall(function() thisTween:Cancel() end)
                     break
                 end
                 task.wait(0.1)
             end
-            shouldTween = false
+            -- An old tween must never clear the state of a newer tween.
+            if TweenInstance == thisTween then
+                TweenInstance = nil
+                TweenTargetCF = nil
+                shouldTween = false
+            end
         end)
     end
 
@@ -3120,10 +3142,8 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
             local best = candidates[1]
             return best
         end
-        for _, npcName in names do
-            local npc = game.ReplicatedStorage:FindFirstChild(npcName)
-            if npc then return npc end
-        end
+        -- No live target found: let Attack() use MobRegions to travel to the spawn area.
+        -- Do not return a ReplicatedStorage template as if it were a spawned enemy.
     end
     function CombatController.Attack(h, X, w, D)
         if ScriptStorage.Tools["Sweet Chalice"] and getsenv(game.ReplicatedStorage.GuideModule)["_G"]['InCombat'] then
@@ -3158,7 +3178,7 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
                     end
                     local C = MonResult:FindFirstChild('Humanoid')
                     local p = MonResult:FindFirstChild('HumanoidRootPart')
-                    if not C or C.Health <= 0 then
+                    if not C or C.Health <= 0 or not p or not p.Parent then
                         if MonResult.Name == "Don Swan" then Storage:Set("SwanDefeated", true) end
                         break
                     end
@@ -3222,8 +3242,26 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
                 end
                 local h = ScriptStorage.MobRegions[L]
                 if not h then
-                    local X = Services.Workspace.Enemies:FindFirstChild(L) or game.ReplicatedStorage:FindFirstChild(L)
-                    h = X and {X:GetPrimaryPartCFrame().p}
+                    -- If the spawn-position cache misses, use a live workspace mob only.
+                    -- A ReplicatedStorage model is just a template and may sit at the origin.
+                    local liveMob = Services.Workspace.Enemies:FindFirstChild(L)
+                    if liveMob then
+                        local ok, mobCF = pcall(function()
+                            return liveMob:GetPivot()
+                        end)
+                        if ok and mobCF then h = {mobCF.Position} end
+                    end
+                end
+                if not h then
+                    local spawnFolder = game.ReplicatedStorage:FindFirstChild("FortBuilderReplicatedSpawnPositionsFolder")
+                    local spawn = spawnFolder and spawnFolder:FindFirstChild(L)
+                    if spawn then
+                        local ok, spawnCF = pcall(function()
+                            if spawn:IsA("BasePart") then return spawn.CFrame end
+                            return spawn:GetPivot()
+                        end)
+                        if ok and spawnCF then h = {spawnCF.Position} end
+                    end
                 end
                 if not h then
                     Report('[ Game data error ] Mob with name ' .. tostring(L) .. ' have no spawn region datas')
@@ -3283,9 +3321,36 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
             assert(not (X and h > X), "timed out")
         end
     end
-    function GetCurrentClaimQuest(h)
-        local h = game.Players.LocalPlayer.PlayerGui.Main.Quest.Visible and game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
-        return (type(h) == "string" and string.gsub(h, "Military ", "Mil. ") or h), game.Players.LocalPlayer.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+    function GetCurrentClaimQuest()
+        local player = game:GetService("Players").LocalPlayer
+        local playerGui = player and player:FindFirstChild("PlayerGui")
+        if not playerGui then return nil, nil end
+
+        local titleText = nil
+        local main = playerGui:FindFirstChild("Main") or playerGui:FindFirstChild("Main (minimal)")
+        local quest = main and main:FindFirstChild("Quest")
+        if quest and quest.Visible then
+            local container = quest:FindFirstChild("Container")
+            local questTitle = container and container:FindFirstChild("QuestTitle")
+            local title = questTitle and questTitle:FindFirstChild("Title")
+            if title and title:IsA("TextLabel") then titleText = title.Text end
+        end
+
+        if not titleText or titleText == "" then
+            local tracked = playerGui:FindFirstChild("TrackedQuestFrame")
+            local enabled = tracked and ((tracked:IsA("ScreenGui") and tracked.Enabled)
+                or (tracked:IsA("GuiObject") and tracked.Visible))
+            local frame = tracked and tracked:FindFirstChild("Frame", true)
+            local header = frame and frame:FindFirstChild("header", true)
+            if enabled and header and header:IsA("TextLabel") then
+                titleText = header.Text
+            end
+        end
+
+        if not titleText or titleText == "" then return nil, nil end
+        local mobName = titleText:gsub("%s*Defeat%s*(%d*)%s*(.-)%s*%b()", "%2")
+        mobName = string.gsub(mobName, "Military ", "Mil. ")
+        return mobName, titleText
     end
     FunctionsHandler.LocalPlayerController.Register()
     FunctionsHandler.ExpRedeem:Register()
@@ -3773,6 +3838,32 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
         return QuestController.CurrentQuestName
     end
 
+    -- Both classic Main.Quest and the newer TrackedQuestFrame are used by clients.
+    -- If only the newer UI exists, checking Main.Quest alone falsely reports no quest
+    -- and the farm loop keeps retrying StartQuest instead of going to the mob.
+    local function IsQuestGuiVisible()
+        local player = LocalPlayer or Players.LocalPlayer
+        local playerGui = player and player:FindFirstChild("PlayerGui")
+        if not playerGui then return false end
+
+        local main = playerGui:FindFirstChild("Main") or playerGui:FindFirstChild("Main (minimal)")
+        local quest = main and main:FindFirstChild("Quest")
+        if quest and quest.Visible then return true end
+
+        local tracked = playerGui:FindFirstChild("TrackedQuestFrame")
+        if tracked then
+            local enabled = (tracked:IsA("ScreenGui") and tracked.Enabled)
+                or (tracked:IsA("GuiObject") and tracked.Visible)
+            local frame = tracked:FindFirstChild("Frame", true)
+            local header = frame and frame:FindFirstChild("header", true)
+            if enabled and header then
+                if not header:IsA("GuiObject") or header.Visible then return true end
+            end
+            if frame and frame:IsA("GuiObject") and frame.Visible then return true end
+        end
+        return false
+    end
+
     local function ManualLevelLookup()
         -- [ADDED - theo yêu cầu boss man] Bảng farm-lv THỦ CÔNG, KHÔNG phụ
         -- thuộc J.RefreshQuest/require(Quests) (chuỗi đang gãy — J.RefreshQuest
@@ -4245,11 +4336,9 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
     end)
 
     -- ══════════════════════════════════════════════════════════════════
-    -- [REPLACED per promt_fix_kaitun — PATCH #1] CheckDataLevel từ message(10)
-    -- ⚠️ CẢNH BÁO: kiến trúc ánh xạ CỨNG level→quái (lv<70→Shanda, lv<120→God's Guard)
-    -- KHÔNG check vị trí thật trên map — rủi ro đơ nếu vị trí không khớp.
-    -- Đây y chang kiểu đã được DynamicIsland gỡ trước đó. Port lại per boss man.
-    -- Ánh xạ: plr.Data.Level.Value → ScriptStorage.PlayerData.Level
+    -- [FIX] Level farm uses ManualLevelLookup for every level so each level
+    -- gets the matching quest NPC, quest id, and mob rather than a fixed
+    -- endgame mob mapping for low-level characters.
     -- ══════════════════════════════════════════════════════════════════
     FunctionsHandler.LevelFarm:RegisterMethod("Refresh", function()
         -- Guard chống xung đột AutoSea3/AutoSea2
@@ -4258,16 +4347,10 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
         local lv = ScriptStorage.PlayerData.Level or 0
         -- Once the level cap is reached, yield dispatcher priority to Godhuman.
         if lv >= (MaxLevel or 2800) then return nil end
-        -- Ánh xạ y hệt message(10) CheckDataLevel()
-        if lv < 10 then
-            return 1
-        elseif lv < 70 then
-            return 2   -- Shanda @ Upper Skylands
-        elseif lv < 120 then
-            return 3   -- God's Guard @ Skylands
-        else
-            return 4
-        end
+        -- Use ManualLevelLookup for every level. The former lv<70 -> Shanda
+        -- and lv<120 -> God's Guard branches sent low-level players to mobs far
+        -- above their level and bypassed the normal quest-acceptance routine.
+        return 4
     end)
     -- ══════════════════════════════════════════════════════════════════
     -- [REPLACED per promt_fix_kaitun — PATCH #2] Chuyển thể FarmLevelLogic
@@ -4394,13 +4477,7 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
             -- Quest state can remain stale briefly after completion. Treat the
             -- live quest GUI as a second signal; never keep attacking the old
             -- target when the server has closed the quest panel.
-            local questGuiVisible = false
-            pcall(function()
-                local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                local main = pg and pg:FindFirstChild("Main")
-                local questGui = main and main:FindFirstChild("Quest")
-                questGuiVisible = questGui ~= nil and questGui.Visible == true
-            end)
+            local questGuiVisible = IsQuestGuiVisible()
             local activeQuestName = GetActiveQuestName()
             if activeQuestName ~= nil then
                 if activeQuestName ~= false and not questGuiVisible then
@@ -4454,13 +4531,7 @@ function W.Attack(target) pcall(function() _G.FastAttack = os.time() end) end
                 end
             end
             -- Re-check quest before combat to prevent post-completion attacks.
-            local stillActive = false
-            pcall(function()
-                local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                local main = pg and pg:FindFirstChild("Main")
-                local questGui = main and main:FindFirstChild("Quest")
-                stillActive = questGui ~= nil and questGui.Visible == true
-            end)
+            local stillActive = IsQuestGuiVisible()
             if not stillActive then
                 SetTask("SubTask", "Quest Active pending replication")
                 return

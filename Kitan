@@ -1073,7 +1073,7 @@ task.spawn(function()
 
     local Title = label(
         "Title",
-        "🍗 น่องไก่  |  สถานะผู้เล่น",
+        "✦ NONGKAI NEXUS  |  PLAYER STATUS",
         UDim2.new(0, 180, 0, 14),
         UDim2.new(1, -195, 0, 28),
         Color3.fromRGB(248, 253, 255),
@@ -1721,7 +1721,7 @@ function hoangtuveu()
     discordLabel.AutomaticSize = Enum.AutomaticSize.XY
     discordLabel.Size = UDim2.new(0, 0, 0, 0)
     discordLabel.BackgroundTransparency = 1
-    discordLabel.Text = "🍗 น่องไก่ • AUTO FARM"
+    discordLabel.Text = "✦ NONGKAI NEXUS • AUTO FARM"
     discordLabel.TextSize = 13
     discordLabel.Font = Enum.Font.Highway
     discordLabel.TextColor3 = Color3.fromRGB(85, 205, 255)
@@ -8049,20 +8049,20 @@ task.spawn(function()
     local PlayerGui = LP:WaitForChild("PlayerGui", 15)
 
     local THEME = {
-        Background = Color3.fromRGB(28, 18, 13),
-        Panel = Color3.fromRGB(55, 31, 19),
-        Panel2 = Color3.fromRGB(86, 47, 24),
-        Accent = Color3.fromRGB(255, 153, 35),
-        Accent2 = Color3.fromRGB(255, 205, 92),
-        Text = Color3.fromRGB(255, 246, 226),
-        Muted = Color3.fromRGB(235, 194, 145),
-        Stroke = Color3.fromRGB(255, 177, 62),
+        Background = Color3.fromRGB(8, 12, 30),
+        Panel = Color3.fromRGB(15, 23, 52),
+        Panel2 = Color3.fromRGB(27, 38, 78),
+        Accent = Color3.fromRGB(56, 189, 248),
+        Accent2 = Color3.fromRGB(167, 139, 250),
+        Text = Color3.fromRGB(239, 246, 255),
+        Muted = Color3.fromRGB(166, 190, 224),
+        Stroke = Color3.fromRGB(96, 165, 250),
     }
 
     -- Wikimedia Commons public image. Roblox cannot display arbitrary web URLs
     -- directly, so supported executors save it locally and expose it via getcustomasset.
-    local CHICKEN_IMAGE_URL = "https://commons.wikimedia.org/wiki/Special:FilePath/Fried_chicken_drumstick.jpg?width=512"
-    local CHICKEN_IMAGE_FILE = "NongKai_Chicken_Image.jpg"
+    local CHICKEN_IMAGE_URL = "https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=512&q=80"
+    local CHICKEN_IMAGE_FILE = "NongKai_Cosmic_Backdrop.jpg"
     local chickenAsset = nil
     pcall(function()
         if writefile and getcustomasset then
@@ -8107,7 +8107,7 @@ task.spawn(function()
                         obj.AutoButtonColor = true
                     end
                     if obj:IsA("TextLabel") and (obj.Name == "Title" or obj.Name == "LoaderTitle") then
-                        obj.Text = "🍗 น่องไก่"
+                        obj.Text = "✦ NONGKAI NEXUS"
                         obj.TextColor3 = THEME.Accent2
                         obj.Font = Enum.Font.GothamBlack
                     end
@@ -8132,12 +8132,12 @@ task.spawn(function()
             end)
         end
 
-        -- Add a photographic backdrop to the account/status card without covering its controls.
+        -- Add a cosmic photographic backdrop to the status card without covering its controls.
         pcall(function()
             local card = root:FindFirstChild("Frame2", true)
-            if card and card:IsA("Frame") and chickenAsset and not card:FindFirstChild("NongKaiPhotoBackdrop") then
+            if card and card:IsA("Frame") and chickenAsset and not card:FindFirstChild("NongKaiCosmicBackdrop") then
                 local photo = Instance.new("ImageLabel")
-                photo.Name = "NongKaiPhotoBackdrop"
+                photo.Name = "NongKaiCosmicBackdrop"
                 photo.BackgroundTransparency = 1
                 photo.BorderSizePixel = 0
                 photo.Position = UDim2.new(0, 0, 0, 0)

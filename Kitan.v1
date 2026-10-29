@@ -170,50 +170,221 @@ RunService.Stepped:Connect(function()
 	end
 end)
 
+-- ArMONHUB modern account panel + movable logo toggle
+local UserInputService = game:GetService("UserInputService")
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "KaitunUIKrita"
+ScreenGui.Name = "ArMONHUB_AccountUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
-ScreenGui.Parent = LocalPlayer.PlayerGui
-local frame = Instance.new("Frame", ScreenGui)
-frame.Size = UDim2.new(0, 560, 0, 130)
-frame.Position = UDim2.new(0.5, -280, 0, 60)
-frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-frame.BackgroundTransparency = 0.05
-local corner = Instance.new("UICorner", frame)
-corner.CornerRadius = UDim.new(0, 12)
-local gradient = Instance.new("UIGradient", frame)
-gradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(172, 224, 112)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 199, 164)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(72, 133, 245))
+ScreenGui.DisplayOrder = 999
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local function addCorner(parent, radius)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, radius)
+    c.Parent = parent
+    return c
+end
+
+local function addStroke(parent, color, thickness, transparency)
+    local st = Instance.new("UIStroke")
+    st.Color = color
+    st.Thickness = thickness
+    st.Transparency = transparency or 0
+    st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    st.Parent = parent
+    return st
+end
+
+local panel = Instance.new("Frame")
+panel.Name = "AccountPanel"
+panel.AnchorPoint = Vector2.new(0.5, 0)
+panel.Position = UDim2.new(0.5, 0, 0, 76)
+panel.Size = UDim2.new(0.82, 0, 0, 280)
+panel.BackgroundColor3 = Color3.fromRGB(3, 8, 22)
+panel.BackgroundTransparency = 0.04
+panel.BorderSizePixel = 0
+panel.Parent = ScreenGui
+addCorner(panel, 28)
+addStroke(panel, Color3.fromRGB(116, 205, 255), 2, 0.08)
+
+local panelSize = Instance.new("UISizeConstraint")
+panelSize.MinSize = Vector2.new(300, 260)
+panelSize.MaxSize = Vector2.new(760, 310)
+panelSize.Parent = panel
+
+local panelGradient = Instance.new("UIGradient")
+panelGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(4, 12, 32)),
+    ColorSequenceKeypoint.new(0.55, Color3.fromRGB(1, 5, 18)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 2, 10))
 })
-gradient.Rotation = 0
-local edge = Instance.new("UIStroke", frame)
-edge.Color = Color3.fromRGB(196, 196, 196)
-edge.Thickness = 3
-edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-local layout = Instance.new("UIListLayout", frame)
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.VerticalAlignment = Enum.VerticalAlignment.Center
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0, 6)
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, -20, 0, 35)
-title.BackgroundTransparency = 1
-title.Text = "krita++ | initializing"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 24
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.LayoutOrder = 1
-local timeLabel = Instance.new("TextLabel", frame)
-timeLabel.Size = UDim2.new(1, -20, 0, 30)
-timeLabel.BackgroundTransparency = 1
-timeLabel.Text = "00:00:00"
-timeLabel.Font = Enum.Font.GothamSemibold
-timeLabel.TextSize = 18
-timeLabel.TextColor3 = Color3.fromRGB(226, 246, 255)
-timeLabel.LayoutOrder = 3
+panelGradient.Rotation = 15
+panelGradient.Parent = panel
+
+local avatar = Instance.new("ImageLabel")
+avatar.Name = "HubLogo"
+avatar.Position = UDim2.new(0, 18, 0, 22)
+avatar.Size = UDim2.new(0, 118, 0, 150)
+avatar.BackgroundColor3 = Color3.fromRGB(10, 24, 48)
+avatar.BorderSizePixel = 0
+avatar.Image = "rbxassetid://87840957911768"
+avatar.ScaleType = Enum.ScaleType.Crop
+avatar.Parent = panel
+addCorner(avatar, 18)
+addStroke(avatar, Color3.fromRGB(70, 180, 255), 2, 0.12)
+
+local heading = Instance.new("TextLabel")
+heading.Name = "Heading"
+heading.Position = UDim2.new(0, 153, 0, 20)
+heading.Size = UDim2.new(1, -175, 0, 32)
+heading.BackgroundTransparency = 1
+heading.Text = "ArMONHUB  |  ACCOUNT STATS"
+heading.Font = Enum.Font.GothamBold
+heading.TextSize = 18
+heading.TextColor3 = Color3.fromRGB(245, 249, 255)
+heading.TextXAlignment = Enum.TextXAlignment.Left
+heading.TextTruncate = Enum.TextTruncate.AtEnd
+heading.Parent = panel
+
+local username = Instance.new("TextLabel")
+username.Name = "Username"
+username.Position = UDim2.new(0, 153, 0, 52)
+username.Size = UDim2.new(1, -175, 0, 23)
+username.BackgroundTransparency = 1
+username.Text = "@" .. LocalPlayer.Name
+username.Font = Enum.Font.GothamMedium
+username.TextSize = 13
+username.TextColor3 = Color3.fromRGB(185, 204, 226)
+username.TextXAlignment = Enum.TextXAlignment.Left
+username.TextTruncate = Enum.TextTruncate.AtEnd
+username.Parent = panel
+
+local live = Instance.new("TextLabel")
+live.Name = "LiveStatus"
+live.Position = UDim2.new(0, 153, 0, 78)
+live.Size = UDim2.new(1, -175, 0, 22)
+live.BackgroundTransparency = 1
+live.Text = "●  STATUS: LIVE"
+live.Font = Enum.Font.GothamBold
+live.TextSize = 13
+live.TextColor3 = Color3.fromRGB(61, 174, 255)
+live.TextXAlignment = Enum.TextXAlignment.Left
+live.Parent = panel
+
+local line = Instance.new("Frame")
+line.Position = UDim2.new(0, 153, 0, 108)
+line.Size = UDim2.new(1, -183, 0, 1)
+line.BackgroundColor3 = Color3.fromRGB(64, 93, 133)
+line.BackgroundTransparency = 0.25
+line.BorderSizePixel = 0
+line.Parent = panel
+
+local function statLabel(name, pos, size, initial, color, textSize)
+    local label = Instance.new("TextLabel")
+    label.Name = name
+    label.Position = pos
+    label.Size = size
+    label.BackgroundTransparency = 1
+    label.Text = initial
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = textSize or 17
+    label.TextColor3 = color or Color3.fromRGB(100, 196, 255)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.TextTruncate = Enum.TextTruncate.AtEnd
+    label.Parent = panel
+    return label
+end
+
+local levelLabel = statLabel("Level", UDim2.new(0,153,0,123), UDim2.new(0.32,0,0,28), "Lv. --")
+local moneyLabel = statLabel("Money", UDim2.new(0.57,0,0,123), UDim2.new(0.38,-12,0,28), "$--", Color3.fromRGB(105, 211, 255))
+local fragmentsLabel = statLabel("Fragments", UDim2.new(0,153,0,158), UDim2.new(0.32,0,0,26), "♦ --", Color3.fromRGB(125, 202, 255), 15)
+local raceLabel = statLabel("Race", UDim2.new(0.57,0,0,158), UDim2.new(0.38,-12,0,26), "RACE: --", Color3.fromRGB(130, 204, 255), 15)
+local itemsLabel = statLabel("Items", UDim2.new(0,153,0,194), UDim2.new(1,-180,0,22), "ITEMS  •  checking inventory...", Color3.fromRGB(169, 190, 216), 11)
+
+-- Keep these names available because the original automation logic updates them.
+local title = statLabel("CurrentTask", UDim2.new(0,153,0,222), UDim2.new(1,-180,0,20), "initializing", Color3.fromRGB(116, 190, 255), 11)
+title.Font = Enum.Font.GothamMedium
+local timeLabel = statLabel("Uptime", UDim2.new(0,18,1,-30), UDim2.new(0.55,0,0,16), "LIVE DATA  •  AUTO UPDATE", Color3.fromRGB(111, 151, 194), 10)
+timeLabel.Font = Enum.Font.GothamBold
+local uptimeLabel = statLabel("SessionUptime", UDim2.new(1,-160,1,-30), UDim2.new(0,140,0,16), "UPTIME: 00:00:00", Color3.fromRGB(111, 151, 194), 10)
+uptimeLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+-- Floating logo button: tap to show/hide the account panel; drag to reposition.
+local toggle = Instance.new("ImageButton")
+toggle.Name = "ArMONHUBToggle"
+toggle.Size = UDim2.new(0, 62, 0, 62)
+toggle.Position = UDim2.new(1, -78, 0.5, -31)
+toggle.BackgroundColor3 = Color3.fromRGB(4, 13, 30)
+toggle.BackgroundTransparency = 0.05
+toggle.BorderSizePixel = 0
+toggle.Image = "rbxassetid://87840957911768"
+toggle.ScaleType = Enum.ScaleType.Crop
+toggle.AutoButtonColor = true
+toggle.Parent = ScreenGui
+addCorner(toggle, 100)
+addStroke(toggle, Color3.fromRGB(66, 180, 255), 2, 0.05)
+
+local toggleAspect = Instance.new("UIAspectRatioConstraint")
+toggleAspect.AspectRatio = 1
+toggleAspect.Parent = toggle
+
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "ClosePanel"
+closeButton.AnchorPoint = Vector2.new(1, 0)
+closeButton.Position = UDim2.new(1, -12, 0, 10)
+closeButton.Size = UDim2.new(0, 28, 0, 28)
+closeButton.BackgroundColor3 = Color3.fromRGB(22, 36, 57)
+closeButton.Text = "×"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 22
+closeButton.TextColor3 = Color3.fromRGB(220, 238, 255)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = panel
+addCorner(closeButton, 8)
+
+local function setPanelVisible(visible)
+    panel.Visible = visible
+end
+toggle.Activated:Connect(function()
+    setPanelVisible(not panel.Visible)
+end)
+closeButton.Activated:Connect(function()
+    setPanelVisible(false)
+end)
+
+local dragging = false
+local dragInput, dragStart, startPos
+local function updateDrag(input)
+    local delta = input.Position - dragStart
+    toggle.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+        startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+toggle.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = toggle.Position
+        dragInput = input
+    end
+end)
+toggle.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        updateDrag(input)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+local sessionStarted = os.clock()
 function SetStatus(text)
     local status = string.lower(tostring(text))
     if title.Text ~= status then
@@ -221,12 +392,38 @@ function SetStatus(text)
     end
     title.Text = status
 end
+
 task.spawn(function()
     while task.wait(1) do
-        local t = os.date("*t")
-        timeLabel.Text = string.format("%02d:%02d:%02d  |  %s, %s %d, %d", t.hour, t.min, t.sec, os.date("%A"), os.date("%B"), t.day, t.year)
+        pcall(function()
+            local data = LocalPlayer:FindFirstChild("Data")
+            local level = data and data:FindFirstChild("Level")
+            local beli = data and data:FindFirstChild("Beli")
+            local fragments = data and data:FindFirstChild("Fragments")
+            local race = data and data:FindFirstChild("Race")
+            levelLabel.Text = "Lv. " .. tostring(level and level.Value or "--")
+            moneyLabel.Text = "$" .. tostring(beli and beli.Value or "--")
+            fragmentsLabel.Text = "♦ " .. tostring(fragments and fragments.Value or "--")
+            raceLabel.Text = "RACE: " .. tostring(race and race.Value or "--")
+            local items = {}
+            local character = LocalPlayer.Character
+            local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+            for _, container in ipairs({character, backpack}) do
+                if container then
+                    for _, item in ipairs(container:GetChildren()) do
+                        if item:IsA("Tool") and not table.find(items, item.Name) then
+                            table.insert(items, item.Name)
+                        end
+                    end
+                end
+            end
+            itemsLabel.Text = "ITEMS  •  " .. (#items > 0 and table.concat(items, " / ") or "none equipped")
+            uptimeLabel.Text = "UPTIME: " .. os.date("!%H:%M:%S", math.floor(os.clock() - sessionStarted))
+            timeLabel.Text = "LIVE DATA  •  AUTO UPDATE"
+        end)
     end
 end)
+
 print("ui initialized")
 
 pcall(function()
